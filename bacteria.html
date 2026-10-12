@@ -75,6 +75,37 @@
   .submuestras { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 0.88rem; }
   .submuestras span { display: inline-flex; align-items: center; gap: 6px; }
   #aviso { padding: 16px; }
+
+  /* --- Sección de colonias en placa de Petri --- */
+  .separador { border: 0; border-top: 1px solid var(--borde); margin: 40px 0 24px; }
+  #pl-visor {
+    width: 100%; height: 500px; border: 1px solid var(--borde); border-radius: 8px;
+    overflow: hidden; background: var(--superficie);
+  }
+  #pl-visor canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  @media (max-width: 640px) { #pl-visor { height: 360px; } }
+  .pl-rejilla { display: grid; gap: 4px 20px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); margin: 8px 0; }
+  .pl-campo { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 8px; }
+  .pl-campo label { grid-column: 1; }
+  .pl-campo .valor { grid-column: 2; font-variant-numeric: tabular-nums; color: var(--texto-suave); }
+  .pl-campo input[type="range"] { grid-column: 1 / -1; width: 100%; min-height: 28px; }
+  #pl-tiempo-campo { margin-top: 12px; }
+  input[type="number"], input[type="color"] {
+    font: inherit; background: var(--superficie); color: var(--texto);
+    border: 1px solid var(--borde); border-radius: 6px; min-height: 40px; padding: 4px 8px;
+  }
+  input[type="number"] { width: 7.5em; }
+  input[type="color"] { width: 48px; padding: 2px; }
+  .pl-lectura {
+    border: 1px solid var(--borde); border-left: 6px solid var(--acento); border-radius: 6px;
+    background: var(--superficie); padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center;
+  }
+  .pl-lectura p { margin: 0 0 4px; }
+  .pl-lectura > div { flex: 1 1 280px; }
+  #pl-grafico { width: 300px; height: 150px; max-width: 100%; border: 1px solid var(--borde); border-radius: 4px; }
+  .ecuacion { font-family: Cambria, "Times New Roman", serif; font-size: 1.15rem; margin: 8px 0 12px 16px; }
+  .explicacion dt { font-weight: 600; margin-top: 6px; }
+  .explicacion dd { margin: 0 0 0 16px; color: var(--texto-suave); }
 </style>
 </head>
 <body>
@@ -104,6 +135,83 @@
 
   <h2 id="titulo-lista">Leyenda y componentes</h2>
   <ul id="lista" aria-labelledby="titulo-lista"></ul>
+
+  <!-- ===================================================================== -->
+  <!-- Sección 2: crecimiento paramétrico de colonias en una placa de Petri   -->
+  <!-- ===================================================================== -->
+  <hr class="separador">
+  <section id="colonias" aria-labelledby="pl-titulo">
+    <h1 id="pl-titulo">Crecimiento de colonias en placa de Petri</h1>
+    <p class="nota">Modelo visual paramétrico: el tamaño de cada colonia sigue una curva logística impuesta, no una simulación de nutrientes ni de difusión. Los parámetros por defecto son provisionales.</p>
+
+    <div id="pl-visor">
+      <canvas id="pl-lienzo" role="img" aria-label="Placa de Petri con colonias bacterianas en crecimiento."></canvas>
+    </div>
+
+    <div class="pl-campo" id="pl-tiempo-campo">
+      <label for="pl-t">Tiempo (horas)</label>
+      <span class="valor" id="pl-t-valor">0.0 h</span>
+      <input id="pl-t" type="range" min="0" max="24" step="0.1" value="0" aria-label="Tiempo en horas">
+    </div>
+    <div class="controles" role="group" aria-label="Reproducción">
+      <button id="pl-play" type="button" aria-label="Reproducir el crecimiento">Reproducir</button>
+      <button id="pl-reiniciar" type="button" aria-label="Reiniciar el tiempo a cero">Reiniciar</button>
+      <button id="pl-vista" type="button" aria-label="Restablecer la vista de la cámara de la placa">Restablecer vista</button>
+    </div>
+
+    <div class="pl-rejilla" id="pl-sliders" role="group" aria-label="Parámetros del modelo"></div>
+
+    <div class="controles" role="group" aria-label="Distribución y apariencia">
+      <label for="pl-semilla">Semilla
+        <input id="pl-semilla" type="number" min="0" max="999999" step="1" value="2024" aria-label="Semilla de la distribución de colonias"></label>
+      <button id="pl-nueva" type="button" aria-label="Generar una nueva distribución de colonias">Nueva distribución</button>
+      <label for="pl-sel">Colonia seleccionada
+        <input id="pl-sel" type="number" min="0" max="40" step="1" value="0" aria-label="Número de la colonia seleccionada, cero para ninguna"></label>
+      <label for="pl-color">Color del medio
+        <input id="pl-color" type="color" value="#e8c98a" aria-label="Color del medio de cultivo"></label>
+      <label for="pl-tapa"><input id="pl-tapa" type="checkbox" aria-label="Mostrar la tapa transparente de la placa"> Tapa</label>
+      <label for="pl-sombras"><input id="pl-sombras" type="checkbox" aria-label="Activar sombras"> Sombras</label>
+    </div>
+    <p class="nota">Arrastra para rotar, rueda o pellizco para acercar, botón derecho o dos dedos para desplazar. Haz clic sobre una colonia para ver sus datos.</p>
+
+    <div class="pl-lectura">
+      <div aria-live="polite" aria-atomic="true">
+        <p id="pl-lectura-general"></p>
+        <p id="pl-lectura-colonia" class="nota"></p>
+      </div>
+      <canvas id="pl-grafico" width="300" height="150" role="img" aria-label="Gráfico de la curva logística N(t) con un marcador en el tiempo actual."></canvas>
+    </div>
+
+    <div class="controles">
+      <button id="pl-probar" type="button" aria-label="Ejecutar las pruebas del modelo matemático">Ejecutar pruebas del modelo</button>
+      <span id="pl-pruebas" class="nota" role="status"></span>
+    </div>
+
+    <h2>Cómo funciona el modelo</h2>
+    <div class="explicacion">
+      <p>La biomasa de cada colonia sigue la ecuación logística:</p>
+      <p class="ecuacion">N(t) = K / (1 + ((K − N₀) / N₀) · e<sup>−r·t</sup>)</p>
+      <p>A partir de ella se calculan el tamaño y la forma de la cúpula:</p>
+      <p class="ecuacion">radio(t) = R<sub>max</sub> · √(N(t) / K) &nbsp;&nbsp;·&nbsp;&nbsp; altura(t) = H<sub>max</sub> · N(t) / K</p>
+      <dl>
+        <dt>t</dt><dd>Tiempo en horas, de 0 a 24.</dd>
+        <dt>N(t)</dt><dd>Población (biomasa) de la colonia en el instante t.</dd>
+        <dt>N₀</dt><dd>Población inicial, mayor que cero. Cuanto menor es, más tarda la colonia en hacerse visible.</dd>
+        <dt>K</dt><dd>Capacidad de carga: el valor máximo al que tiende N(t). Como el radio y la altura dependen de N/K, cambiar K solo adelanta o retrasa la curva.</dd>
+        <dt>r</dt><dd>Tasa de crecimiento, por hora. Determina la pendiente de la fase exponencial.</dd>
+        <dt>radio y R<sub>max</sub></dt><dd>Radio de la colonia y su valor máximo. El área crece en proporción a la biomasa, por eso aparece la raíz cuadrada.</dd>
+        <dt>altura y H<sub>max</sub></dt><dd>Altura de la cúpula y su valor máximo, proporcional a la biomasa.</dd>
+      </dl>
+      <p>Cada colonia tiene su propio N₀ y su propia r, con una variación de ±15 % respecto de los valores globales, generada a partir de la semilla. El radio de cada colonia se limita a la mitad de la distancia a su vecina más cercana (y a la distancia al borde de la placa), menos un pequeño margen, para que no se atraviesen.</p>
+      <h2>Supuestos del modelo</h2>
+      <ul>
+        <li><strong>Sin difusión de nutrientes:</strong> las colonias no compiten por el medio ni lo agotan; cada una sigue su curva.</li>
+        <li><strong>Relación radio–biomasa asumida:</strong> el área es proporcional a la biomasa y la altura también; no procede de mediciones.</li>
+        <li><strong>Crecimiento isotrópico:</strong> todas las colonias son cúpulas circulares, sin bordes irregulares ni sectores.</li>
+        <li><strong>Contacto aproximado:</strong> al tocarse, las colonias dejan de ensancharse en lugar de deformarse o fusionarse.</li>
+      </ul>
+    </div>
+  </section>
 </main>
 
 <script type="module">
@@ -623,6 +731,561 @@ if (renderer) {
   window.addEventListener('pagehide', e => { if (!e.persisted) desmontar(); }, { once: true });
   window.desmontarBacteria = desmontar; // disponible si se incrusta en otra página
 }
+</script>
+
+<!-- ======================================================================= -->
+<!-- Sección 2: colonias en placa de Petri con crecimiento logístico          -->
+<!-- ======================================================================= -->
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------------------------------------------------------------------------
+// Parámetros por defecto (valores provisionales)
+// ---------------------------------------------------------------------------
+const PARAM = {
+  N0: 0.01,          // población inicial, fracción de K — reemplazar con datos de literatura
+  K: 1.0,            // capacidad de carga — reemplazar con datos de literatura
+  r: 0.45,           // tasa de crecimiento por hora — reemplazar con datos de literatura
+  Rmax: 0.6,         // radio máximo de colonia, unidades de escena — reemplazar con datos de literatura
+  Hmax: 0.25,        // altura máxima de la cúpula, unidades de escena — reemplazar con datos de literatura
+  nColonias: 40,     // número de colonias (10 a 120) — reemplazar con datos de literatura
+  radioPlaca: 4.5,   // radio de la placa, unidades de escena — reemplazar con datos de literatura
+  tMax: 24,          // duración en horas
+};
+const MAX_COLONIAS = 120;
+const VARIACION = 0.15;      // ±15 % en N0 y r por colonia
+const MARGEN_CONTACTO = 0.02; // separación mínima entre colonias vecinas
+const MARGEN_BORDE = 0.35;    // distancia mínima de los centros al borde de la placa
+const HORAS_POR_SEGUNDO = 2;  // velocidad de la reproducción
+const COLOR_COLONIA = new THREE.Color(0xf3ead0); // crema
+const COLOR_SELECCION = new THREE.Color(0xff9d3c);
+const FONDOS = { oscuro: 0x0b1020, claro: 0xf5f7fa };
+
+// ---------------------------------------------------------------------------
+// Funciones puras del modelo (se pueden probar desde la consola con
+// window.coloniasModelo). "r" es siempre la tasa de crecimiento; el radio de la
+// colonia se llama siempre "radio".
+// ---------------------------------------------------------------------------
+
+/** Población logística N(t) = K / (1 + ((K − N0)/N0) · e^(−r·t)), con N0 > 0 y K > N0. */
+function poblacion(t, N0, K, r) {
+  return K / (1 + ((K - N0) / N0) * Math.exp(-r * t));
+}
+/** Radio de la colonia: radio(t) = Rmax · sqrt(N(t)/K). */
+function radioColonia(t, N0, K, r, Rmax) {
+  return Rmax * Math.sqrt(poblacion(t, N0, K, r) / K);
+}
+/** Altura de la cúpula: altura(t) = Hmax · N(t)/K. */
+function alturaColonia(t, N0, K, r, Hmax) {
+  return Hmax * poblacion(t, N0, K, r) / K;
+}
+/** Radio efectivo: el radio libre recortado al límite de contacto de la colonia. */
+function radioLimitado(radioLibre, limite) {
+  return Math.max(0, Math.min(radioLibre, limite));
+}
+
+/** Generador pseudoaleatorio reproducible (mulberry32). */
+function crearAzar(semilla) {
+  let s = semilla | 0;
+  return () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let x = Math.imul(s ^ (s >>> 15), 1 | s);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Genera las colonias: posiciones por muestreo con rechazo (distancia mínima
+ * dentro del disco), factores de variación de N0 y r, y límite de contacto.
+ * Función pura: misma semilla, mismo resultado.
+ */
+function generarColonias(n, semilla, radioPlaca) {
+  const azar = crearAzar(semilla);
+  const radioUtil = radioPlaca - MARGEN_BORDE;
+  // Distancia mínima adaptada a la densidad, para que el rechazo siempre termine
+  let dMin = Math.min(1.3, 0.62 * Math.sqrt(Math.PI * radioUtil * radioUtil / n));
+  const colonias = [];
+  let rechazos = 0;
+  while (colonias.length < n) {
+    const ang = azar() * Math.PI * 2, rho = radioUtil * Math.sqrt(azar());
+    const x = rho * Math.cos(ang), z = rho * Math.sin(ang);
+    if (colonias.every(c => Math.hypot(c.x - x, c.z - z) >= dMin)) colonias.push({ x, z });
+    else if (++rechazos > 3000) { dMin *= 0.95; rechazos = 0; } // red de seguridad
+  }
+  for (const c of colonias) {
+    c.factorN0 = 1 + VARIACION * (azar() * 2 - 1);
+    c.factorR = 1 + VARIACION * (azar() * 2 - 1);
+    // Límite de contacto: mitad de la distancia a la vecina más cercana (o distancia al borde) menos el margen
+    let dVecina = Infinity;
+    for (const o of colonias) if (o !== c) dVecina = Math.min(dVecina, Math.hypot(o.x - c.x, o.z - c.z));
+    const dBorde = radioPlaca - Math.hypot(c.x, c.z);
+    c.limite = Math.max(0, Math.min(dVecina / 2, dBorde) - MARGEN_CONTACTO);
+  }
+  return colonias;
+}
+
+/**
+ * Pruebas del modelo. Devuelve una lista de { prueba, ok, detalle } y la
+ * muestra en la consola.
+ */
+function probarModelo(p = PARAM, colonias = generarColonias(p.nColonias, 2024, p.radioPlaca)) {
+  const res = [];
+  const n0 = poblacion(0, p.N0, p.K, p.r);
+  res.push({ prueba: 'N(0) = N0', ok: Math.abs(n0 - p.N0) < 1e-12, detalle: `N(0) = ${n0}` });
+
+  const lejos = poblacion(1000, p.N0, p.K, p.r);
+  let creciente = true;
+  for (let t = 0; t < 100; t += 0.5) {
+    if (poblacion(t + 0.5, p.N0, p.K, p.r) < poblacion(t, p.N0, p.K, p.r)) creciente = false;
+  }
+  res.push({ prueba: 'N(t) tiende a K', ok: creciente && Math.abs(lejos - p.K) < 1e-9 && lejos <= p.K,
+             detalle: `N(1000) = ${lejos}, K = ${p.K}, creciente = ${creciente}` });
+
+  let peor = -Infinity;
+  for (const c of colonias) {
+    for (let t = 0; t <= p.tMax * 4; t += 0.25) {
+      const radio = radioLimitado(radioColonia(t, p.N0 * c.factorN0, p.K, p.r * c.factorR, p.Rmax), c.limite);
+      peor = Math.max(peor, radio - c.limite);
+    }
+  }
+  res.push({ prueba: 'radio(t) ≤ límite de contacto', ok: peor <= 1e-12, detalle: `exceso máximo = ${peor}` });
+
+  console.table(res);
+  return res;
+}
+window.coloniasModelo = { poblacion, radioColonia, alturaColonia, radioLimitado, generarColonias, probar: probarModelo, PARAM };
+
+// ---------------------------------------------------------------------------
+// Elementos de la interfaz
+// ---------------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+const visor = $('pl-visor'), lienzo = $('pl-lienzo');
+const rngT = $('pl-t'), txtT = $('pl-t-valor');
+const btnPlay = $('pl-play'), btnReiniciar = $('pl-reiniciar'), btnVista = $('pl-vista');
+const inpSemilla = $('pl-semilla'), btnNueva = $('pl-nueva'), inpSel = $('pl-sel');
+const inpColor = $('pl-color'), chkTapa = $('pl-tapa'), chkSombras = $('pl-sombras');
+const lecGeneral = $('pl-lectura-general'), lecColonia = $('pl-lectura-colonia');
+const grafico = $('pl-grafico'), btnProbar = $('pl-probar'), txtPruebas = $('pl-pruebas');
+const movimientoReducido = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+// Estado
+const p = { ...PARAM };
+let t = 0, reproduciendo = false, semilla = Number(inpSemilla.value);
+let colonias = [], seleccion = -1;     // seleccion: índice de la colonia o -1
+let matricesSucias = true, hayQueDibujar = true;
+
+// Sliders de parámetros (etiqueta visible + aria-label + valor)
+const SLIDERS = [
+  { clave: 'r', texto: 'r · tasa de crecimiento (por hora)', min: 0.1, max: 1.5, paso: 0.01, dec: 2 },
+  { clave: 'K', texto: 'K · capacidad de carga', min: 0.5, max: 2, paso: 0.05, dec: 2 },
+  { clave: 'N0', texto: 'N₀ · población inicial', min: 0.001, max: 0.1, paso: 0.001, dec: 3 },
+  { clave: 'nColonias', texto: 'Número de colonias', min: 10, max: MAX_COLONIAS, paso: 1, dec: 0 },
+  { clave: 'Rmax', texto: 'R_max · radio máximo de colonia', min: 0.2, max: 1, paso: 0.05, dec: 2 },
+];
+const entradasSlider = [];
+for (const s of SLIDERS) {
+  const campo = document.createElement('div');
+  campo.className = 'pl-campo';
+  const etiqueta = document.createElement('label');
+  etiqueta.htmlFor = `pl-s-${s.clave}`;
+  etiqueta.textContent = s.texto;
+  const valor = document.createElement('span');
+  valor.className = 'valor';
+  const entrada = document.createElement('input');
+  Object.assign(entrada, { type: 'range', id: `pl-s-${s.clave}`, min: s.min, max: s.max, step: s.paso, value: p[s.clave] });
+  entrada.setAttribute('aria-label', s.texto);
+  valor.textContent = p[s.clave].toFixed(s.dec);
+  const alCambiar = () => {
+    p[s.clave] = Number(entrada.value);
+    valor.textContent = p[s.clave].toFixed(s.dec);
+    if (s.clave === 'nColonias') regenerar();
+    matricesSucias = true;
+    dibujarGrafico();
+    actualizarLectura();
+  };
+  entrada.addEventListener('input', alCambiar);
+  entradasSlider.push({ entrada, alCambiar });
+  campo.append(etiqueta, valor, entrada);
+  $('pl-sliders').append(campo);
+}
+
+// ---------------------------------------------------------------------------
+// Escena 3D
+// ---------------------------------------------------------------------------
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas: lienzo, antialias: true });
+} catch (e) {
+  visor.innerHTML = '<p id="aviso">Tu navegador no puede mostrar el modelo 3D (WebGL no disponible). El gráfico y las lecturas siguen funcionando.</p>';
+}
+const escena = new THREE.Scene();
+const camara = new THREE.PerspectiveCamera(45, 2, 0.1, 100);
+
+// Iluminación: ambiental + direccional suave (sombras opcionales)
+escena.add(new THREE.HemisphereLight(0xffffff, 0x8a8f9c, 1.3));
+const luz = new THREE.DirectionalLight(0xffffff, 2.2);
+luz.position.set(4, 9, 5);
+luz.shadow.mapSize.set(1024, 1024);
+Object.assign(luz.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 25 });
+luz.shadow.radius = 4;
+luz.shadow.bias = -0.0005;
+escena.add(luz);
+
+// Placa de Petri: medio de cultivo, vidrio y tapa opcional
+const ALTO_MEDIO = 0.3;
+const matMedio = new THREE.MeshStandardMaterial({ color: inpColor.value, roughness: 0.35 });
+const medio = new THREE.Mesh(new THREE.CylinderGeometry(p.radioPlaca, p.radioPlaca, ALTO_MEDIO, 96), matMedio);
+medio.position.y = -ALTO_MEDIO / 2; // la superficie del medio queda en y = 0
+medio.receiveShadow = true;
+const matVidrio = new THREE.MeshPhysicalMaterial({
+  color: 0xdfeaf2, transparent: true, opacity: 0.28, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false,
+});
+const pared = new THREE.Mesh(new THREE.CylinderGeometry(p.radioPlaca + 0.1, p.radioPlaca + 0.1, 0.75, 96, 1, true), matVidrio);
+pared.position.y = -ALTO_MEDIO + 0.75 / 2;
+const base = new THREE.Mesh(new THREE.CylinderGeometry(p.radioPlaca + 0.1, p.radioPlaca + 0.1, 0.04, 96), matVidrio);
+base.position.y = -ALTO_MEDIO - 0.02;
+const tapa = new THREE.Group();
+const tapaDisco = new THREE.Mesh(new THREE.CylinderGeometry(p.radioPlaca + 0.22, p.radioPlaca + 0.22, 0.04, 96), matVidrio);
+tapaDisco.position.y = 0.62;
+const tapaPared = new THREE.Mesh(new THREE.CylinderGeometry(p.radioPlaca + 0.22, p.radioPlaca + 0.22, 0.6, 96, 1, true), matVidrio);
+tapaPared.position.y = 0.32;
+tapa.add(tapaDisco, tapaPared);
+tapa.visible = false;
+escena.add(medio, pared, base, tapa);
+
+// Colonias: un único InstancedMesh de hemisferios (thetaLength = π/2), base en y = 0
+const geoColonia = new THREE.SphereGeometry(1, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+const matColonia = new THREE.MeshPhysicalMaterial({
+  color: 0xffffff, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08, // brillo húmedo
+});
+const malla = new THREE.InstancedMesh(geoColonia, matColonia, MAX_COLONIAS);
+malla.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+malla.castShadow = true;
+malla.receiveShadow = true;
+escena.add(malla);
+
+// Cámara con límites: no baja del plano de la placa
+const controles = new OrbitControls(camara, lienzo);
+controles.enableDamping = !movimientoReducido.matches;
+controles.screenSpacePanning = false;           // el desplazamiento se queda en el plano horizontal
+controles.maxPolarAngle = Math.PI / 2 - 0.08;   // nunca por debajo de la placa
+controles.minDistance = 2;
+controles.maxDistance = 30;
+controles.addEventListener('change', () => { hayQueDibujar = true; });
+
+function vistaInicial() {
+  const d = Math.max(11, 5.4 / (Math.tan(THREE.MathUtils.degToRad(22.5)) * camara.aspect));
+  camara.position.set(0, d * 0.72, d * 0.7);
+  controles.target.set(0, 0, 0);
+  controles.update();
+  hayQueDibujar = true;
+}
+
+function ajustarTamano() {
+  const w = visor.clientWidth, h = visor.clientHeight;
+  if (!w || !h) return;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // pixel ratio máximo de 2
+  renderer.setSize(w, h, false);
+  camara.aspect = w / h;
+  camara.updateProjectionMatrix();
+  hayQueDibujar = true;
+}
+
+// ---------------------------------------------------------------------------
+// Actualización del modelo
+// ---------------------------------------------------------------------------
+function regenerar() {
+  colonias = generarColonias(p.nColonias, semilla, p.radioPlaca);
+  malla.count = colonias.length;
+  if (seleccion >= colonias.length) seleccion = -1;
+  inpSel.max = colonias.length;
+  inpSel.value = seleccion + 1;
+  pintarColores();
+  matricesSucias = true;
+}
+
+function pintarColores() {
+  for (let i = 0; i < colonias.length; i++) malla.setColorAt(i, i === seleccion ? COLOR_SELECCION : COLOR_COLONIA);
+  malla.instanceColor.needsUpdate = true;
+  hayQueDibujar = true;
+}
+
+// Recalcula radio y altura de cada colonia y escribe las matrices de instancia.
+// Solo se llama cuando cambian t o los parámetros.
+const m4 = new THREE.Matrix4(), pos = new THREE.Vector3(), esc = new THREE.Vector3(), sinGiro = new THREE.Quaternion();
+function actualizarMatrices() {
+  for (let i = 0; i < colonias.length; i++) {
+    const c = colonias[i];
+    c.N0 = p.N0 * c.factorN0;
+    c.r = p.r * c.factorR;
+    c.radioLibre = radioColonia(t, c.N0, p.K, c.r, p.Rmax);
+    c.radio = radioLimitado(c.radioLibre, c.limite);
+    c.altura = alturaColonia(t, c.N0, p.K, c.r, p.Hmax);
+    malla.setMatrixAt(i, m4.compose(pos.set(c.x, 0, c.z), sinGiro, esc.set(c.radio, c.altura, c.radio)));
+  }
+  malla.instanceMatrix.needsUpdate = true;
+  malla.computeBoundingSphere(); // necesario para que el raycasting use el tamaño actual
+  matricesSucias = false;
+  hayQueDibujar = true;
+}
+
+const radioMedio = () => colonias.reduce((s, c) => s + c.radio, 0) / colonias.length;
+
+// Panel de lectura y aria-label del canvas. Solo se llama al pausar, al mover
+// un slider o al seleccionar, nunca en cada cuadro de la reproducción.
+function actualizarLectura() {
+  if (matricesSucias) actualizarMatrices();
+  const N = poblacion(t, p.N0, p.K, p.r), rm = radioMedio();
+  lecGeneral.textContent = `t = ${t.toFixed(1)} h · N(t) = ${N.toFixed(3)} (${(100 * N / p.K).toFixed(0)} % de K) · radio medio = ${rm.toFixed(2)} u · ${colonias.length} colonias`;
+  if (seleccion >= 0) {
+    const c = colonias[seleccion];
+    const tope = c.radioLibre > c.limite ? ' (limitado por contacto)' : '';
+    lecColonia.textContent = `Colonia ${seleccion + 1}: N₀ = ${c.N0.toFixed(4)}, r = ${c.r.toFixed(3)} por hora, radio = ${c.radio.toFixed(3)} u${tope}, altura = ${c.altura.toFixed(3)} u.`;
+  } else {
+    lecColonia.textContent = 'Ninguna colonia seleccionada. Haz clic sobre una o escribe su número.';
+  }
+  lienzo.setAttribute('aria-label',
+    `Placa de Petri vista desde arriba en ángulo, con ${colonias.length} colonias bacterianas de color crema en forma de cúpula sobre un medio de cultivo. A las ${t.toFixed(1)} horas el radio medio de las colonias es ${rm.toFixed(2)} unidades y la población es el ${(100 * N / p.K).toFixed(0)} por ciento de la capacidad de carga.`);
+}
+
+// Gráfico 2D de N(t) con marcador en el tiempo actual
+function dibujarGrafico() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2), W = 300, H = 150;
+  if (grafico.width !== W * dpr) { grafico.width = W * dpr; grafico.height = H * dpr; }
+  const g = grafico.getContext('2d'), estilo = getComputedStyle(document.documentElement);
+  const color = v => estilo.getPropertyValue(v).trim();
+  const izq = 34, der = 8, sup = 10, inf = 24, aw = W - izq - der, ah = H - sup - inf;
+  const X = tt => izq + (tt / p.tMax) * aw, Y = n => sup + ah - (n / p.K) * ah;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = color('--superficie');
+  g.fillRect(0, 0, W, H);
+  // Ejes y rótulos
+  g.strokeStyle = color('--texto-suave'); g.fillStyle = color('--texto'); g.lineWidth = 1;
+  g.font = '11px system-ui, sans-serif';
+  g.beginPath(); g.moveTo(izq, sup); g.lineTo(izq, sup + ah); g.lineTo(izq + aw, sup + ah); g.stroke();
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  g.fillText('K', izq - 5, Y(p.K)); g.fillText('0', izq - 5, Y(0));
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  for (const h of [0, 6, 12, 18, 24]) g.fillText(String(h), X(h), sup + ah + 4);
+  g.textAlign = 'right'; g.fillText('t (h)', W - der, sup + ah + 4 - 14);
+  g.save(); g.translate(10, sup + ah / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText('N(t)', 0, -4); g.restore();
+  // Curva logística con los valores globales
+  g.strokeStyle = color('--acento'); g.lineWidth = 2;
+  g.beginPath();
+  for (let i = 0; i <= 120; i++) {
+    const tt = (i / 120) * p.tMax, x = X(tt), y = Y(poblacion(tt, p.N0, p.K, p.r));
+    i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.stroke();
+  // Marcador del tiempo actual
+  const xm = X(t), ym = Y(poblacion(t, p.N0, p.K, p.r));
+  g.strokeStyle = color('--texto-suave'); g.lineWidth = 1; g.setLineDash([3, 3]);
+  g.beginPath(); g.moveTo(xm, sup); g.lineTo(xm, sup + ah); g.stroke(); g.setLineDash([]);
+  g.fillStyle = color('--foco'); g.strokeStyle = color('--texto');
+  g.beginPath(); g.arc(xm, ym, 4.5, 0, Math.PI * 2); g.fill(); g.stroke();
+}
+
+function fijarTiempo(nuevo) {
+  t = Math.min(p.tMax, Math.max(0, nuevo));
+  rngT.value = t;
+  txtT.textContent = `${t.toFixed(1)} h`;
+  matricesSucias = true;
+  dibujarGrafico();
+}
+
+// ---------------------------------------------------------------------------
+// Reproducción
+// ---------------------------------------------------------------------------
+function pintarBotonPlay() {
+  btnPlay.textContent = reproduciendo ? 'Pausa' : 'Reproducir';
+  btnPlay.setAttribute('aria-label', reproduciendo ? 'Pausar el crecimiento' : 'Reproducir el crecimiento');
+}
+function reproducir() {
+  if (t >= p.tMax) fijarTiempo(0); // si terminó, vuelve a empezar
+  reproduciendo = true;
+  pintarBotonPlay();
+}
+function pausar() {
+  reproduciendo = false;
+  pintarBotonPlay();
+  actualizarLectura(); // la lectura con aria-live solo se actualiza al pausar
+}
+const alternarPlay = () => (reproduciendo ? pausar() : reproducir());
+function reiniciar() { fijarTiempo(0); pausar(); }
+function alMoverTiempo() { reproduciendo = false; pintarBotonPlay(); fijarTiempo(Number(rngT.value)); actualizarLectura(); }
+
+// ---------------------------------------------------------------------------
+// Selección de colonias: clic (raycasting con instanceId) o campo numérico
+// ---------------------------------------------------------------------------
+const rayo = new THREE.Raycaster(), puntero = new THREE.Vector2();
+let inicioPulsacion = null;
+function seleccionar(i) {
+  seleccion = i;
+  inpSel.value = i + 1;
+  pintarColores();
+  actualizarLectura();
+}
+function alPulsar(ev) { inicioPulsacion = { x: ev.clientX, y: ev.clientY }; }
+function alSoltar(ev) {
+  if (!inicioPulsacion) return;
+  const movido = Math.hypot(ev.clientX - inicioPulsacion.x, ev.clientY - inicioPulsacion.y);
+  inicioPulsacion = null;
+  if (movido >= 6) return; // fue un arrastre de cámara, no un clic
+  const rect = lienzo.getBoundingClientRect();
+  puntero.set(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
+  rayo.setFromCamera(puntero, camara);
+  if (matricesSucias) actualizarMatrices();
+  const toque = rayo.intersectObject(malla, false)[0];
+  seleccionar(toque ? toque.instanceId : -1);
+}
+function alEscribirSeleccion() {
+  const n = Math.round(Number(inpSel.value));
+  seleccionar(n >= 1 && n <= colonias.length ? n - 1 : -1);
+}
+
+// ---------------------------------------------------------------------------
+// Otros controles
+// ---------------------------------------------------------------------------
+function alCambiarSemilla() {
+  semilla = Math.max(0, Math.round(Number(inpSemilla.value)) || 0);
+  seleccion = -1;
+  regenerar();
+  actualizarLectura();
+}
+function nuevaDistribucion() {
+  inpSemilla.value = Math.floor(Math.random() * 1000000);
+  alCambiarSemilla();
+}
+function alCambiarColor() { matMedio.color.set(inpColor.value); hayQueDibujar = true; }
+function alCambiarTapa() { tapa.visible = chkTapa.checked; hayQueDibujar = true; }
+function alCambiarSombras() {
+  renderer.shadowMap.enabled = chkSombras.checked;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  luz.castShadow = chkSombras.checked;
+  matMedio.needsUpdate = matColonia.needsUpdate = true; // recompila los materiales con o sin sombras
+  hayQueDibujar = true;
+}
+function ejecutarPruebas() {
+  const res = probarModelo(p, colonias);
+  const fallos = res.filter(x => !x.ok);
+  txtPruebas.textContent = fallos.length
+    ? `Fallan ${fallos.length} de ${res.length} pruebas: ${fallos.map(x => x.prueba).join('; ')}.`
+    : `Las ${res.length} pruebas pasan: ${res.map(x => x.prueba).join('; ')}.`;
+}
+function alCambiarMovimiento(e) { controles.enableDamping = !e.matches; if (e.matches && reproduciendo) pausar(); }
+
+// El fondo sigue al tema claro/oscuro que controla la primera sección
+function aplicarTema() {
+  escena.background = new THREE.Color(FONDOS[document.documentElement.dataset.tema] ?? FONDOS.oscuro);
+  dibujarGrafico();
+  hayQueDibujar = true;
+}
+
+// ---------------------------------------------------------------------------
+// Bucle: solo recalcula matrices y dibuja cuando algo cambió
+// ---------------------------------------------------------------------------
+let cuadro = 0, anterior = performance.now();
+function bucle(ahora) {
+  cuadro = requestAnimationFrame(bucle);
+  const dt = Math.min((ahora - anterior) / 1000, 0.1);
+  anterior = ahora;
+  if (reproduciendo) {
+    fijarTiempo(t + dt * HORAS_POR_SEGUNDO);
+    if (t >= p.tMax) pausar();
+  }
+  controles.update();
+  if (matricesSucias) actualizarMatrices();
+  if (hayQueDibujar) { renderer.render(escena, camara); hayQueDibujar = false; }
+}
+
+// ---------------------------------------------------------------------------
+// Montaje y desmontaje
+// ---------------------------------------------------------------------------
+let obsTamano, obsTema, obsVisible;
+function montar() {
+  regenerar();
+  fijarTiempo(0);
+  pintarBotonPlay();
+  actualizarLectura();
+
+  rngT.addEventListener('input', alMoverTiempo);
+  btnPlay.addEventListener('click', alternarPlay);
+  btnReiniciar.addEventListener('click', reiniciar);
+  inpSemilla.addEventListener('change', alCambiarSemilla);
+  btnNueva.addEventListener('click', nuevaDistribucion);
+  inpSel.addEventListener('change', alEscribirSeleccion);
+  btnProbar.addEventListener('click', ejecutarPruebas);
+  movimientoReducido.addEventListener('change', alCambiarMovimiento);
+  obsTema = new MutationObserver(aplicarTema);
+  obsTema.observe(document.documentElement, { attributes: true, attributeFilter: ['data-tema'] });
+
+  if (!renderer) { dibujarGrafico(); return; } // sin WebGL: quedan el gráfico y las lecturas
+
+  aplicarTema();
+  ajustarTamano();
+  vistaInicial();
+  lienzo.style.cursor = 'grab';
+  obsTamano = new ResizeObserver(ajustarTamano);
+  obsTamano.observe(visor);
+  lienzo.addEventListener('pointerdown', alPulsar);
+  lienzo.addEventListener('pointerup', alSoltar);
+  btnVista.addEventListener('click', vistaInicial);
+  inpColor.addEventListener('input', alCambiarColor);
+  chkTapa.addEventListener('change', alCambiarTapa);
+  chkSombras.addEventListener('change', alCambiarSombras);
+
+  // La reproducción arranca sola la primera vez que la placa entra en pantalla,
+  // salvo que el usuario prefiera movimiento reducido.
+  obsVisible = new IntersectionObserver(entradas => {
+    if (!entradas.some(e => e.isIntersecting)) return;
+    obsVisible.disconnect();
+    if (!movimientoReducido.matches && t === 0) reproducir();
+  }, { threshold: 0.5 });
+  obsVisible.observe(visor);
+
+  cuadro = requestAnimationFrame(bucle);
+}
+
+function desmontar() {
+  cancelAnimationFrame(cuadro);
+  obsTamano?.disconnect(); obsTema?.disconnect(); obsVisible?.disconnect();
+  rngT.removeEventListener('input', alMoverTiempo);
+  btnPlay.removeEventListener('click', alternarPlay);
+  btnReiniciar.removeEventListener('click', reiniciar);
+  inpSemilla.removeEventListener('change', alCambiarSemilla);
+  btnNueva.removeEventListener('click', nuevaDistribucion);
+  inpSel.removeEventListener('change', alEscribirSeleccion);
+  btnProbar.removeEventListener('click', ejecutarPruebas);
+  movimientoReducido.removeEventListener('change', alCambiarMovimiento);
+  for (const s of entradasSlider) s.entrada.removeEventListener('input', s.alCambiar);
+  lienzo.removeEventListener('pointerdown', alPulsar);
+  lienzo.removeEventListener('pointerup', alSoltar);
+  btnVista.removeEventListener('click', vistaInicial);
+  inpColor.removeEventListener('input', alCambiarColor);
+  chkTapa.removeEventListener('change', alCambiarTapa);
+  chkSombras.removeEventListener('change', alCambiarSombras);
+  controles.dispose();
+  // Geometrías, materiales y sus texturas (si las hubiera), una sola vez cada uno
+  const liberados = new Set();
+  escena.traverse(o => {
+    for (const rec of [o.geometry, o.material]) {
+      if (!rec || liberados.has(rec)) continue;
+      for (const v of Object.values(rec)) if (v && v.isTexture) v.dispose();
+      rec.dispose();
+      liberados.add(rec);
+    }
+    if (o.isInstancedMesh) o.dispose();
+    if (o.isLight && o.shadow) o.shadow.dispose(); // mapa de sombras
+  });
+  escena.clear();
+  if (renderer) { renderer.dispose(); renderer.forceContextLoss(); }
+}
+
+montar();
+window.addEventListener('pagehide', e => { if (!e.persisted) desmontar(); }, { once: true });
+window.desmontarPlaca = desmontar;
 </script>
 </body>
 </html>
