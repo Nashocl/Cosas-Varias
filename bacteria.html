@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="es" data-tema="oscuro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Burkholderia cepacia — modelo 3D esquemático</title>
+
+<!-- Three.js con versión fija mediante import map (sin otras dependencias) -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+  }
+}
+</script>
+
+<style>
+  /* Paleta de la interfaz: dos temas con contraste de texto AA */
+  :root[data-tema="oscuro"] {
+    --fondo: #0b1020; --superficie: #151c33; --borde: #3a4670;
+    --texto: #e8ecf4; --texto-suave: #b4bdd4; --acento: #8ab4ff; --foco: #ffd166;
+  }
+  :root[data-tema="claro"] {
+    --fondo: #f5f7fa; --superficie: #ffffff; --borde: #8a94a8;
+    --texto: #1a2030; --texto-suave: #465066; --acento: #1d4ed8; --foco: #b45309;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: var(--fondo); color: var(--texto);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.15rem; margin: 24px 0 8px; }
+  p { margin: 0 0 12px; }
+  .nota { color: var(--texto-suave); font-size: 0.92rem; }
+
+  /* Contenedor del modelo: ancho del contenedor, 500 px de alto (360 px en móvil) */
+  #visor {
+    width: 100%; height: 500px; border: 1px solid var(--borde); border-radius: 8px;
+    overflow: hidden; background: var(--superficie); position: relative;
+  }
+  #visor canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  @media (max-width: 640px) { #visor { height: 360px; } }
+
+  .controles { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 12px 0; }
+  button, input[type="range"] { font: inherit; }
+  button {
+    background: var(--superficie); color: var(--texto); border: 1px solid var(--borde);
+    border-radius: 6px; padding: 8px 12px; min-height: 40px; cursor: pointer;
+  }
+  button:hover { border-color: var(--acento); }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--foco); outline-offset: 2px; }
+  label { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; }
+  input[type="checkbox"] { width: 20px; height: 20px; }
+
+  /* Panel de información del componente resaltado */
+  #panel {
+    border: 1px solid var(--borde); border-left: 6px solid var(--acento); border-radius: 6px;
+    background: var(--superficie); padding: 12px 16px; min-height: 96px;
+  }
+  #panel h2 { margin: 0 0 4px; }
+  #panel p { margin: 0; }
+
+  /* Leyenda y lista textual de componentes */
+  #lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px;
+           grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  #lista li { border: 1px solid var(--borde); border-radius: 6px; background: var(--superficie); padding: 10px 12px; }
+  #lista li.activo { border-color: var(--acento); box-shadow: 0 0 0 2px var(--acento); }
+  #lista .fila { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  #lista .nombre { flex: 1; text-align: left; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  #lista p { margin: 8px 0 0; font-size: 0.93rem; color: var(--texto-suave); }
+  .muestra { width: 16px; height: 16px; border-radius: 3px; border: 1px solid var(--texto); flex: none; display: inline-block; }
+  .submuestras { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 0.88rem; }
+  .submuestras span { display: inline-flex; align-items: center; gap: 6px; }
+  #aviso { padding: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <h1><i>Burkholderia cepacia</i>: modelo 3D esquemático</h1>
+  <p class="nota">Esquema educativo, <strong>no está a escala</strong>: el grosor de las capas y el tamaño de ribosomas, pili y flagelos están exagerados para que se vean. Bacilo Gram-negativo recto, móvil y no esporulado, de aprox. 1,6–3,2 µm de largo.</p>
+
+  <div id="visor">
+    <canvas id="lienzo" role="img"
+      aria-label="Modelo 3D esquemático de la bacteria Burkholderia cepacia: un bacilo cilíndrico de extremos redondeados, cortado a lo largo para mostrar su interior. De fuera hacia dentro: capa irregular de exopolisacárido, membrana externa, pared de peptidoglicano en el periplasma y membrana interna. En el citoplasma hay ribosomas dispersos y tres regiones de nucleoide de colores distintos, una por cromosoma. De un polo sale un penacho de cuatro flagelos helicoidales con gancho en la base, y de la superficie salen algunos pili finos y un sistema de secreción tipo VI. La lista bajo el modelo describe cada componente."></canvas>
+  </div>
+
+  <div class="controles" role="group" aria-label="Controles del modelo">
+    <button id="btn-anim" type="button" aria-pressed="false" aria-label="Pausar la rotación de los flagelos">Pausar flagelos</button>
+    <button id="btn-tema" type="button" aria-label="Cambiar a fondo claro">Fondo claro</button>
+    <label for="chk-corte"><input id="chk-corte" type="checkbox" checked aria-label="Activar plano de corte para ver el interior"> Plano de corte</label>
+    <label for="rng-corte">Posición del corte
+      <input id="rng-corte" type="range" min="-1.2" max="1.3" step="0.05" value="0" aria-label="Posición del plano de corte"></label>
+    <button id="btn-vista" type="button" aria-label="Restablecer la vista de la cámara">Restablecer vista</button>
+  </div>
+  <p class="nota" id="ayuda">Arrastra para rotar, rueda o pellizco para acercar, botón derecho o dos dedos para desplazar. Pasa el cursor o haz clic sobre un componente para ver su descripción.</p>
+
+  <section id="panel" aria-live="polite" aria-atomic="true">
+    <h2 id="panel-titulo">Selecciona un componente</h2>
+    <p id="panel-texto">Pasa el cursor o haz clic sobre el modelo, o elige un componente en la lista de abajo.</p>
+  </section>
+
+  <h2 id="titulo-lista">Leyenda y componentes</h2>
+  <ul id="lista" aria-labelledby="titulo-lista"></ul>
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------------------------------------------------------------------------
+// Datos de los componentes. Los colores tienen luminancia relativa ≈ 0,18–0,25,
+// de modo que cada uno guarda contraste ≥ 3:1 (WCAG AA para gráficos) tanto con
+// el fondo oscuro (#0b1020) como con el claro (#f5f7fa).
+// ---------------------------------------------------------------------------
+const COMPONENTES = [
+  { id: 'eps', nombre: 'Cápsula / exopolisacárido', color: 0x0e9384,
+    desc: 'Capa externa irregular de exopolisacárido (cepaciano en la mayoría de las cepas). Forma la matriz de la biopelícula, ayuda a adherirse a superficies y protege frente al sistema inmunitario, por ejemplo dificultando la acción de los neutrófilos.' },
+  { id: 'mext', nombre: 'Membrana externa (LPS)', color: 0xd9600a,
+    desc: 'Bicapa con lipopolisacárido (LPS) en su cara exterior. Es poco permeable: su LPS modificado da resistencia intrínseca a las polimixinas y sus porinas restringen la entrada de fármacos. Aquí desembocan las bombas de expulsión (familia RND) que sacan antibióticos y antisépticos de la célula.' },
+  { id: 'pg', nombre: 'Pared de peptidoglicano', color: 0x9b5de5,
+    desc: 'Malla fina de peptidoglicano situada en el espacio periplásmico, entre las dos membranas. Da rigidez y mantiene la forma de bacilo. Es delgada, como en toda bacteria Gram-negativa.' },
+  { id: 'mint', nombre: 'Membrana interna', color: 0x2f7fe0,
+    desc: 'Membrana citoplasmática. Delimita el citoplasma y, junto con la membrana externa, encierra el espacio periplásmico. Ancla el motor de los flagelos y el componente interno de las bombas de expulsión.' },
+  { id: 'flagelos', nombre: 'Flagelos polares', color: 0xe0364f,
+    desc: 'Filamentos helicoidales que giran como una hélice y dan movilidad. Burkholderia tiene un flagelo polar o un penacho de varios; aquí se muestran cuatro. Cada uno se une al motor de la envoltura mediante un gancho curvo en su base.' },
+  { id: 'pili', nombre: 'Pili (fimbrias)', color: 0xd63fb0,
+    desc: 'Apéndices proteicos finos y cortos repartidos por la superficie. Participan en la adhesión a células y superficies; en el complejo B. cepacia se han descrito varios tipos, entre ellos los pili «cable».' },
+  { id: 'nucleoide', nombre: 'Nucleoides (replicones)', color: 0x3a9a3a,
+    sub: [ { n: 'Cromosoma 1', c: 0x3a9a3a }, { n: 'Cromosoma 2', c: 0x1790b8 }, { n: 'Cromosoma 3', c: 0xa87a0a } ],
+    desc: 'Genoma grande, de unos 6–9 Mb, repartido en varios replicones. En la cepa tipo ATCC 25416 son tres cromosomas circulares (≈3,65, 3,17 y 1,07 Mb) y un plásmido grande (≈0,2 Mb, no dibujado). Cada región de color representa un cromosoma.' },
+  { id: 'ribosomas', nombre: 'Ribosomas', color: 0x7c8794,
+    desc: 'Partículas 70S dispersas por el citoplasma donde se sintetizan las proteínas. En el modelo están muy aumentadas y son muchas menos que las miles que tiene una célula real.' },
+  { id: 't6ss', nombre: 'Sistema de secreción tipo VI (opcional)', color: 0xa8663c,
+    desc: 'Nanomáquina con forma de jeringa: una vaina contráctil en el citoplasma dispara una punta a través de la envoltura. Está descrito en B. cenocepacia, del complejo B. cepacia, donde tiene actividad contra otras bacterias y contribuye a la competencia por el nicho.' },
+];
+const porId = Object.fromEntries(COMPONENTES.map(c => [c.id, c]));
+
+// Medidas relativas del modelo (unidades arbitrarias). Largo/ancho = 7/2 = 3,5:1
+const R_EXT = 1.0, R_PG = 0.93, R_INT = 0.85, R_EPS = 1.2, SEMI = 2.5; // SEMI: mitad del tramo cilíndrico
+const FONDOS = { oscuro: 0x0b1020, claro: 0xf5f7fa };
+const movimientoReducido = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+// Generador pseudoaleatorio con semilla, para que el modelo sea siempre igual
+function crearAzar(semilla) {
+  return () => {
+    semilla = (semilla + 0x6D2B79F5) | 0;
+    let t = Math.imul(semilla ^ (semilla >>> 15), 1 | semilla);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const azar = crearAzar(1950);
+const gauss = () => (azar() + azar() + azar() + azar() - 2) / 1.15; // aprox. normal
+
+const lienzo = document.getElementById('lienzo');
+const visor = document.getElementById('visor');
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas: lienzo, antialias: true });
+} catch (e) {
+  visor.innerHTML = '<p id="aviso">Tu navegador no puede mostrar el modelo 3D (WebGL no disponible). Toda la información está en la lista de componentes de abajo.</p>';
+}
+
+// ---------------------------------------------------------------------------
+// Escena, cámara y luces
+// ---------------------------------------------------------------------------
+const escena = new THREE.Scene();
+const camara = new THREE.PerspectiveCamera(45, 2, 0.1, 100);
+const raiz = new THREE.Group();      // contiene toda la bacteria
+raiz.position.x = 2.2;               // centra el conjunto célula + flagelos
+escena.add(raiz);
+
+escena.add(new THREE.HemisphereLight(0xffffff, 0x555566, 1.6));
+const sol = new THREE.DirectionalLight(0xffffff, 1.8);
+sol.position.set(4, 6, 8);
+escena.add(sol);
+
+// Plano de corte: conserva lo que queda detrás de z = constante
+const plano = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+const SIN_CORTE = 1000;
+
+// Cada componente tiene un grupo propio para poder ocultarlo y resaltarlo
+const grupos = {};
+for (const c of COMPONENTES) {
+  grupos[c.id] = new THREE.Group();
+  grupos[c.id].name = c.nombre;
+  raiz.add(grupos[c.id]);
+}
+const seleccionables = []; // objetos sobre los que se lanza el rayo
+
+// Registra un objeto dentro de su componente
+function agregar(id, objeto, recortable = false) {
+  objeto.userData.comp = id;
+  objeto.userData.recortable = recortable;
+  grupos[id].add(objeto);
+  seleccionables.push(objeto);
+  return objeto;
+}
+
+// Cápsula geométrica (cilindro + dos hemisferios) orientada a lo largo del eje X
+function geoCapsula(radio, segAltura = 1) {
+  const g = new THREE.CapsuleGeometry(radio, SEMI * 2, 16, 48, segAltura);
+  g.rotateZ(Math.PI / 2);
+  return g;
+}
+
+// Material translúcido para las capas de la envoltura
+function matCapa(color, opacidad, extra = {}) {
+  const m = new THREE.MeshStandardMaterial({
+    color, transparent: true, opacity: opacidad, side: THREE.DoubleSide,
+    depthWrite: false, roughness: 0.6, clippingPlanes: [plano], ...extra,
+  });
+  m.userData.opacidadBase = opacidad;
+  return m;
+}
+const matSolido = color => new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
+
+// --- 1-3. Envoltura: membrana interna, peptidoglicano y membrana externa ----
+const mInt = agregar('mint', new THREE.Mesh(geoCapsula(R_INT), matCapa(porId.mint.color, 0.6)), true);
+mInt.renderOrder = 1;
+// El peptidoglicano se dibuja como malla de alambre para sugerir su estructura en red
+const mPg = agregar('pg', new THREE.Mesh(geoCapsula(R_PG, 14), matCapa(porId.pg.color, 0.9, { wireframe: true })), true);
+mPg.renderOrder = 2;
+const mExt = agregar('mext', new THREE.Mesh(geoCapsula(R_EXT), matCapa(porId.mext.color, 0.6)), true);
+mExt.renderOrder = 3;
+
+// --- 4. Cápsula / exopolisacárido: superficie deformada para que sea irregular
+{
+  const g = geoCapsula(R_EPS, 24);
+  const pos = g.attributes.position, nor = g.attributes.normal;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    // Suma de senos dependiente de la posición: relieve suave y sin costuras
+    const d = 0.07 * (Math.sin(3.1 * x + 1) * Math.cos(2.7 * y) + Math.sin(4.3 * z + 2 * x) + Math.sin(5 * y + 1.3 * z));
+    pos.setXYZ(i, x + nor.getX(i) * d, y + nor.getY(i) * d, z + nor.getZ(i) * d);
+  }
+  g.computeVertexNormals();
+  const m = agregar('eps', new THREE.Mesh(g, matCapa(porId.eps.color, 0.38, { roughness: 0.9 })), true);
+  m.renderOrder = 4;
+}
+
+// ¿Está el punto dentro de una cápsula de radio r alineada con X?
+function dentroDeCapsula(x, y, z, r) {
+  const dx = Math.max(Math.abs(x) - SEMI, 0);
+  return dx * dx + y * y + z * z < r * r;
+}
+
+// --- 7. Nucleoides: una nube de partículas por replicón, cada una de un color
+{
+  const regiones = [ // centro en X, semieje en X, número de partículas (proporcional al tamaño)
+    { cx: -1.45, sx: 0.75, n: 900 },
+    { cx: 0.55, sx: 0.65, n: 780 },
+    { cx: 2.05, sx: 0.4, n: 300 },
+  ];
+  regiones.forEach((r, i) => {
+    const pts = [];
+    while (pts.length < r.n * 3) {
+      const x = r.cx + gauss() * r.sx, y = gauss() * 0.36, z = gauss() * 0.36;
+      if (dentroDeCapsula(x, y, z, 0.62)) pts.push(x, y, z);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    const m = new THREE.PointsMaterial({ color: porId.nucleoide.sub[i].c, size: 0.075, sizeAttenuation: true });
+    m.userData.tamanoBase = 0.075;
+    agregar('nucleoide', new THREE.Points(g, m));
+  });
+}
+
+// --- 8. Ribosomas: esferas pequeñas instanciadas y dispersas en el citoplasma
+{
+  const N = 240;
+  const malla = new THREE.InstancedMesh(new THREE.SphereGeometry(0.05, 10, 8), matSolido(porId.ribosomas.color), N);
+  const m4 = new THREE.Matrix4();
+  for (let i = 0; i < N;) {
+    const x = (azar() * 2 - 1) * (SEMI + 0.75), y = (azar() * 2 - 1) * 0.75, z = (azar() * 2 - 1) * 0.75;
+    if (!dentroDeCapsula(x, y, z, 0.75)) continue;
+    malla.setMatrixAt(i++, m4.makeTranslation(x, y, z));
+  }
+  malla.instanceMatrix.needsUpdate = true;
+  malla.computeBoundingSphere();
+  agregar('ribosomas', malla);
+}
+
+// --- 5. Flagelos polares: gancho en la base + filamento helicoidal (TubeGeometry)
+const rotores = []; // grupos que giran en la animación
+{
+  const N = 4, LARGO = 4.2, AMPLITUD = 0.2, VUELTAS = 3.5;
+  const mat = matSolido(porId.flagelos.color);
+  const ejeX = new THREE.Vector3(1, 0, 0);
+  // Hélice sobre el eje X local; la amplitud crece desde cero para unirse al gancho
+  const puntos = [];
+  for (let i = 0; i <= 140; i++) {
+    const t = i / 140, a = AMPLITUD * Math.min(1, t * 5), ang = t * VUELTAS * Math.PI * 2;
+    puntos.push(new THREE.Vector3(t * LARGO, a * Math.cos(ang), a * Math.sin(ang)));
+  }
+  const geoHelice = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(puntos), 220, 0.035, 6);
+  // Gancho: tubo curvo y más grueso que nace dentro de la envoltura
+  const geoGancho = new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(
+    new THREE.Vector3(-0.2, 0, 0), new THREE.Vector3(0.15, 0.16, 0), new THREE.Vector3(0.42, 0, 0)), 12, 0.06, 8);
+
+  for (let i = 0; i < N; i++) {
+    const fi = (i / N) * Math.PI * 2 + Math.PI / 4;
+    const dir = new THREE.Vector3(-1, 0.38 * Math.cos(fi), 0.38 * Math.sin(fi)).normalize();
+    const base = new THREE.Group(); // anclado en el polo, apuntando hacia fuera
+    base.position.set(-SEMI, 0, 0).addScaledVector(dir, R_EXT);
+    base.quaternion.setFromUnitVectors(ejeX, dir);
+    const gancho = new THREE.Mesh(geoGancho, mat);
+    const rotor = new THREE.Group();
+    rotor.position.x = 0.42;
+    rotor.rotation.x = i * 1.3; // desfase entre flagelos
+    const helice = new THREE.Mesh(geoHelice, mat);
+    rotor.add(helice);
+    base.add(gancho, rotor);
+    grupos.flagelos.add(base);
+    for (const o of [gancho, helice]) { o.userData.comp = 'flagelos'; seleccionables.push(o); }
+    rotores.push(rotor);
+  }
+}
+
+// Punto de la superficie de la cápsula y su normal, para colocar apéndices
+function puntoSuperficie(x, angulo, radio) {
+  const n = new THREE.Vector3(0, Math.cos(angulo), Math.sin(angulo));
+  return { p: new THREE.Vector3(x, 0, 0).addScaledVector(n, radio), n };
+}
+
+// --- 6. Pili: pocos tubos finos y algo curvados repartidos por la superficie
+{
+  const mat = matSolido(porId.pili.color);
+  for (let i = 0; i < 12; i++) {
+    const { p, n } = puntoSuperficie((azar() * 2 - 1) * SEMI, azar() * Math.PI * 2, R_EXT - 0.05);
+    const largo = 0.65 + azar() * 0.4;
+    const fin = p.clone().addScaledVector(n, largo);
+    const medio = p.clone().addScaledVector(n, largo * 0.5).add(new THREE.Vector3((azar() - 0.5) * 0.35, 0, 0));
+    const g = new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(p, medio, fin), 8, 0.02, 5);
+    agregar('pili', new THREE.Mesh(g, mat));
+  }
+}
+
+// --- 9. Sistema de secreción tipo VI (opcional): vaina interna, complejo de membrana y punta
+{
+  const mat = matSolido(porId.t6ss.color);
+  const maquina = new THREE.Group(); // construida sobre el eje Y local (radial)
+  const vaina = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.6, 12), mat);
+  vaina.position.y = R_INT - 0.3;
+  const anclaje = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, R_EXT - R_INT + 0.04, 12), mat);
+  anclaje.position.y = (R_EXT + R_INT) / 2;
+  const punta = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.4, 10), mat);
+  punta.position.y = R_EXT + 0.2;
+  maquina.add(vaina, anclaje, punta);
+  const { n } = puntoSuperficie(0, Math.PI * 0.8, 1);
+  n.z = -Math.abs(n.z) - 0.5; n.normalize(); // en la mitad que conserva el corte
+  maquina.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
+  maquina.position.x = -0.35;
+  grupos.t6ss.add(maquina);
+  for (const o of [vaina, anclaje, punta]) { o.userData.comp = 't6ss'; seleccionables.push(o); }
+}
+
+// ---------------------------------------------------------------------------
+// Controles de cámara (rotar, zoom y desplazar)
+// ---------------------------------------------------------------------------
+const controles = new OrbitControls(camara, lienzo);
+controles.enableDamping = !movimientoReducido.matches; // sin inercia si se pide menos movimiento
+controles.minDistance = 3;
+controles.maxDistance = 40;
+
+function vistaInicial() {
+  // Aleja la cámara lo necesario para que quepa el conjunto según la proporción del visor
+  const d = Math.max(8.5, 6.6 / (Math.tan(THREE.MathUtils.degToRad(22.5)) * camara.aspect));
+  camara.position.set(d * 0.18, d * 0.28, d * 0.94);
+  controles.target.set(0, 0, 0);
+  controles.update();
+}
+
+function ajustarTamano() {
+  const w = visor.clientWidth, h = visor.clientHeight;
+  if (!w || !h) return;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(w, h, false);
+  camara.aspect = w / h;
+  camara.updateProjectionMatrix();
+}
+
+// ---------------------------------------------------------------------------
+// Estado de la interfaz: resaltado, panel, lista, visibilidad
+// ---------------------------------------------------------------------------
+let sobre = null;         // componente bajo el cursor
+let seleccionado = null;  // componente fijado con clic o desde la lista
+const panelTitulo = document.getElementById('panel-titulo');
+const panelTexto = document.getElementById('panel-texto');
+const lista = document.getElementById('lista');
+const elementosLista = {};
+const hex = c => '#' + c.toString(16).padStart(6, '0');
+
+function resaltar(id, activo) {
+  grupos[id].traverse(o => {
+    const m = o.material;
+    if (!m) return;
+    if (o.isPoints) { m.size = m.userData.tamanoBase * (activo ? 1.6 : 1); return; }
+    m.emissive.copy(m.color);
+    m.emissiveIntensity = activo ? 0.55 : 0;
+    if (m.userData.opacidadBase) m.opacity = Math.min(1, m.userData.opacidadBase + (activo ? 0.3 : 0));
+  });
+}
+
+function actualizarEstado() {
+  const actual = sobre ?? seleccionado;
+  for (const c of COMPONENTES) {
+    resaltar(c.id, c.id === sobre || c.id === seleccionado);
+    elementosLista[c.id].li.classList.toggle('activo', c.id === seleccionado);
+    elementosLista[c.id].nombre.setAttribute('aria-pressed', String(c.id === seleccionado));
+  }
+  const titulo = actual ? porId[actual].nombre : 'Selecciona un componente';
+  const texto = actual ? porId[actual].desc : 'Pasa el cursor o haz clic sobre el modelo, o elige un componente en la lista de abajo.';
+  // Solo se escribe si cambia, para no repetir anuncios a los lectores de pantalla
+  if (panelTitulo.textContent !== titulo) { panelTitulo.textContent = titulo; panelTexto.textContent = texto; }
+}
+
+function alternarVisible(id) {
+  const g = grupos[id], { ver } = elementosLista[id];
+  g.visible = !g.visible;
+  ver.textContent = g.visible ? 'Ocultar' : 'Mostrar';
+  ver.setAttribute('aria-pressed', String(!g.visible));
+  ver.setAttribute('aria-label', `${g.visible ? 'Ocultar' : 'Mostrar'} ${porId[id].nombre}`);
+}
+
+// Lista textual: misma información que el panel, navegable con teclado
+for (const c of COMPONENTES) {
+  const li = document.createElement('li');
+  const fila = document.createElement('div');
+  fila.className = 'fila';
+
+  const nombre = document.createElement('button');
+  nombre.type = 'button';
+  nombre.className = 'nombre';
+  nombre.setAttribute('aria-pressed', 'false');
+  nombre.setAttribute('aria-label', `Resaltar ${c.nombre} en el modelo`);
+  const muestra = document.createElement('span');
+  muestra.className = 'muestra';
+  muestra.style.background = hex(c.color);
+  muestra.setAttribute('aria-hidden', 'true');
+  nombre.append(muestra, c.nombre);
+  nombre.addEventListener('click', () => { seleccionado = seleccionado === c.id ? null : c.id; actualizarEstado(); });
+
+  const ver = document.createElement('button');
+  ver.type = 'button';
+  ver.textContent = 'Ocultar';
+  ver.setAttribute('aria-pressed', 'false');
+  ver.setAttribute('aria-label', `Ocultar ${c.nombre}`);
+  ver.addEventListener('click', () => alternarVisible(c.id));
+
+  fila.append(nombre, ver);
+  li.append(fila);
+  if (c.sub) { // un color por replicón
+    const sub = document.createElement('div');
+    sub.className = 'submuestras';
+    for (const s of c.sub) {
+      const e = document.createElement('span');
+      const m = document.createElement('span');
+      m.className = 'muestra';
+      m.style.background = hex(s.c);
+      m.setAttribute('aria-hidden', 'true');
+      e.append(m, s.n);
+      sub.append(e);
+    }
+    li.append(sub);
+  }
+  const p = document.createElement('p');
+  p.textContent = c.desc;
+  li.append(p);
+  lista.append(li);
+  elementosLista[c.id] = { li, nombre, ver };
+}
+
+// ---------------------------------------------------------------------------
+// Selección con el puntero (hover y clic) mediante raycasting
+// ---------------------------------------------------------------------------
+const rayo = new THREE.Raycaster();
+rayo.params.Points.threshold = 0.05;
+const puntero = new THREE.Vector2();
+const chkCorte = document.getElementById('chk-corte');
+const rngCorte = document.getElementById('rng-corte');
+
+function componenteEn(ev) {
+  const r = lienzo.getBoundingClientRect();
+  puntero.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  rayo.setFromCamera(puntero, camara);
+  for (const h of rayo.intersectObjects(seleccionables, false)) {
+    const o = h.object;
+    if (!grupos[o.userData.comp].visible) continue;                      // componente oculto
+    if (o.userData.recortable && plano.distanceToPoint(h.point) < 0) continue; // parte eliminada por el corte
+    return o.userData.comp;
+  }
+  return null;
+}
+
+let inicioPulsacion = null, arrastrando = false;
+function alMover(ev) {
+  if (arrastrando) return;
+  const id = componenteEn(ev);
+  if (id !== sobre) { sobre = id; lienzo.style.cursor = id ? 'pointer' : 'grab'; actualizarEstado(); }
+}
+function alPulsar(ev) { inicioPulsacion = { x: ev.clientX, y: ev.clientY }; arrastrando = true; }
+function alSoltar(ev) {
+  arrastrando = false;
+  if (!inicioPulsacion) return;
+  // Solo cuenta como clic si el puntero casi no se movió (si no, fue un giro de cámara)
+  const movido = Math.hypot(ev.clientX - inicioPulsacion.x, ev.clientY - inicioPulsacion.y);
+  inicioPulsacion = null;
+  if (movido < 6) { seleccionado = componenteEn(ev); actualizarEstado(); }
+}
+function alSalir() { if (sobre) { sobre = null; actualizarEstado(); } }
+
+// ---------------------------------------------------------------------------
+// Botones: animación, tema, corte y vista
+// ---------------------------------------------------------------------------
+const btnAnim = document.getElementById('btn-anim');
+const btnTema = document.getElementById('btn-tema');
+const btnVista = document.getElementById('btn-vista');
+// Con prefers-reduced-motion no se reproduce nada automáticamente: empieza en pausa
+let animando = !movimientoReducido.matches;
+
+function pintarBotonAnim() {
+  btnAnim.textContent = animando ? 'Pausar flagelos' : 'Girar flagelos';
+  btnAnim.setAttribute('aria-pressed', String(!animando));
+  btnAnim.setAttribute('aria-label', animando ? 'Pausar la rotación de los flagelos' : 'Reanudar la rotación de los flagelos');
+}
+function alternarAnim() { animando = !animando; pintarBotonAnim(); }
+function alCambiarMovimiento(e) {
+  controles.enableDamping = !e.matches;
+  if (e.matches) { animando = false; pintarBotonAnim(); }
+}
+
+function aplicarTema(tema) {
+  document.documentElement.dataset.tema = tema;
+  escena.background = new THREE.Color(FONDOS[tema]);
+  const otro = tema === 'oscuro' ? 'claro' : 'oscuro';
+  btnTema.textContent = `Fondo ${otro}`;
+  btnTema.setAttribute('aria-label', `Cambiar a fondo ${otro}`);
+}
+function alternarTema() { aplicarTema(document.documentElement.dataset.tema === 'oscuro' ? 'claro' : 'oscuro'); }
+
+function aplicarCorte() {
+  plano.constant = chkCorte.checked ? Number(rngCorte.value) : SIN_CORTE;
+  rngCorte.disabled = !chkCorte.checked;
+}
+
+// ---------------------------------------------------------------------------
+// Bucle de dibujo
+// ---------------------------------------------------------------------------
+let cuadro = 0, anterior = performance.now();
+function bucle(ahora) {
+  cuadro = requestAnimationFrame(bucle);
+  const dt = Math.min((ahora - anterior) / 1000, 0.1);
+  anterior = ahora;
+  if (animando) for (const r of rotores) r.rotation.x += dt * 5; // giro de cada flagelo sobre su eje
+  controles.update();
+  renderer.render(escena, camara);
+}
+
+// ---------------------------------------------------------------------------
+// Montaje y desmontaje (libera geometrías, materiales y el renderer)
+// ---------------------------------------------------------------------------
+let observador;
+function montar() {
+  renderer.localClippingEnabled = true;
+  aplicarTema(window.matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'oscuro');
+  aplicarCorte();
+  pintarBotonAnim();
+  ajustarTamano();
+  vistaInicial();
+  actualizarEstado();
+  lienzo.style.cursor = 'grab';
+
+  observador = new ResizeObserver(ajustarTamano);
+  observador.observe(visor);
+  lienzo.addEventListener('pointermove', alMover);
+  lienzo.addEventListener('pointerdown', alPulsar);
+  lienzo.addEventListener('pointerup', alSoltar);
+  lienzo.addEventListener('pointerleave', alSalir);
+  btnAnim.addEventListener('click', alternarAnim);
+  btnTema.addEventListener('click', alternarTema);
+  btnVista.addEventListener('click', vistaInicial);
+  chkCorte.addEventListener('change', aplicarCorte);
+  rngCorte.addEventListener('input', aplicarCorte);
+  movimientoReducido.addEventListener('change', alCambiarMovimiento);
+  cuadro = requestAnimationFrame(bucle);
+}
+
+function desmontar() {
+  cancelAnimationFrame(cuadro);
+  observador?.disconnect();
+  lienzo.removeEventListener('pointermove', alMover);
+  lienzo.removeEventListener('pointerdown', alPulsar);
+  lienzo.removeEventListener('pointerup', alSoltar);
+  lienzo.removeEventListener('pointerleave', alSalir);
+  btnAnim.removeEventListener('click', alternarAnim);
+  btnTema.removeEventListener('click', alternarTema);
+  btnVista.removeEventListener('click', vistaInicial);
+  chkCorte.removeEventListener('change', aplicarCorte);
+  rngCorte.removeEventListener('input', aplicarCorte);
+  movimientoReducido.removeEventListener('change', alCambiarMovimiento);
+  controles.dispose();
+  // Geometrías y materiales compartidos: se liberan una sola vez
+  const liberados = new Set();
+  escena.traverse(o => {
+    for (const r of [o.geometry, o.material]) {
+      if (r && !liberados.has(r)) { r.dispose(); liberados.add(r); }
+    }
+    if (o.isInstancedMesh) o.dispose();
+  });
+  escena.clear();
+  renderer.dispose();
+  renderer.forceContextLoss();
+}
+
+if (renderer) {
+  montar();
+  // Al abandonar la página definitivamente (no al entrar en la caché de retroceso)
+  window.addEventListener('pagehide', e => { if (!e.persisted) desmontar(); }, { once: true });
+  window.desmontarBacteria = desmontar; // disponible si se incrusta en otra página
+}
+</script>
+</body>
+</html>
